@@ -1,0 +1,7 @@
+pillow
+matplotlib
+seaborn
+tqdm
+torch==2.6.0+cu118 
+torchvision==0.21.0+cu118
+scikit-learn
