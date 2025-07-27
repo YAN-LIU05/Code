@@ -30,9 +30,10 @@
 │   └── task_2_wafer_trajectory_mixed_adaptive.json
 │
 ├── 脚本文件/
-│   ├── task1.py                             # Task 1 处理脚本
-│   └── task2.py                             # Task 2 处理脚本
-│
+│   ├── task1.py                             # 基于贪心算法的task1处理脚本
+│   ├── task2.py                             # 基于贪心算法的task2处理脚本
+│   ├── wafer1.py                            # 基于DQN的task1处理脚本
+│   └── wafer2.py                            # 基于DQN的task2处理脚本
 ├── requirements.txt                        # Python库配置文档
 └── README.txt                              # 说明文档
 ```
@@ -40,6 +41,11 @@
 ### task1.py和task2.py
 
 - `task1.py` 和 `task2.py` 分别是任务一和任务二的代码，其余是生成的 `json` 和 `png` 文件。
+
+### wafer1.py和wafer2.py
+
+- `wafer1.py` 和 `wafer2.py` 分别是基于DQN的任务一和任务二的代码。
+
 
 ### task1.py 生成的 JSON 文件
 
@@ -290,3 +296,9 @@
   - 观察: 自适应模式负载均衡最佳（约236-279），尤其在故障和混合场景中；静态模式较差（约300+）。
   - 用途: 评估资源分配的均匀性，优化模块选择策略。
   - ![平均负载均衡](README/task_2_load_balance_mean.png)
+
+- **文件名**: reward_and_time.png
+
+  - 内容: 左图为每轮次的奖励图，右图为每轮次的加工时间图。
+  - 含义: 反映算法的收敛性和效率。
+  - 观察: 在使用DQN算法的基础上，奖励和时间图呈现出较好的收敛性和效率。
