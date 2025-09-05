@@ -5,49 +5,61 @@
 import pandas as pd
 
 
-# ** 将函数定义恢复为接收 'columns_to_load' **
 def load_cleaned_data(filepath, columns_to_load):
     """
-    加载数据，仅保留指定的列，并进行数据清洗。
-
-    参数:
-        filepath (str): Excel文件路径。
-        columns_to_load (list): 一个包含所有需要保留的列名的列表。
+    加载数据，筛选列，清洗，并将'怀孕次数'和'生产次数'中的空值(NaN)填充为3。
     """
     try:
         df = pd.read_excel(filepath, sheet_name='男胎数据_已清洗')
         print(f"成功从 '{filepath}' 加载数据。原始维度: {df.shape}")
-    except FileNotFoundError:
-        print(f"错误: 文件未找到 '{filepath}'。")
-        return None
     except Exception as e:
-        print(f"加载文件时发生错误: {e}")
+        print(f"加载文件失败: {e}")
         return None
 
-    # --- 1. 检查并筛选指定的列 ---
-    missing_cols = [col for col in columns_to_load if col not in df.columns]
-    if missing_cols:
-        print(f"错误: 数据文件中缺少以下必需的列: {missing_cols}")
-        return None
-
+    # --- 1. 筛选指定的列 ---
     df = df[columns_to_load].copy()
-    print(f"已从原始数据中筛选出 {len(columns_to_load)} 列用于全部后续分析。")
 
-    # --- 2. 处理特殊值，如 '≥3' ---
-    for col in ['怀孕次数', '生产次数']:
-        if col in df.columns:
-            df[col] = df[col].replace('≥3', 3)
-
-    # --- 3. 将所有分析列转换为数值型并处理空值 ---
+    # --- 2. 预处理计数类列 ---
+    # 首先，像之前一样，将所有列尝试转换为数值，无法转换的会变成 NaN
     for col in df.columns:
+        # 我们在这里先不替换'≥3'，让to_numeric直接处理它
         df[col] = pd.to_numeric(df[col], errors='coerce')
 
+    # --- 3. 核心改动：将指定列的 NaN 填充为 3 ---
+    cols_to_fill = ['怀孕次数', '生产次数']
+    for col in cols_to_fill:
+        if col in df.columns:
+            # 记录填充前有多少个NaN
+            nan_count_before = df[col].isnull().sum()
+            if nan_count_before > 0:
+                print(f"在列 '{col}' 中发现 {nan_count_before} 个空值，将它们填充为 3。")
+                # 使用 .fillna() 进行填充
+                df[col].fillna(3, inplace=True)
+            else:
+                print(f"列 '{col}' 中没有发现空值。")
+
+    # --- 4. 识别并报告剩余的空值 (来自其他列) ---
+    # 现在df中'怀孕次数'和'生产次数'应该没有NaN了
+    rows_with_nan = df[df.isnull().any(axis=1)]
+
+    if not rows_with_nan.empty:
+        print("\n" + "=" * 20 + " 警告：在其他列中发现并即将删除以下含有空值的行 " + "=" * 20)
+        print(f"受影响的行索引: {rows_with_nan.index.tolist()}")
+        # 打印详细信息，帮助定位是哪个其他列出了问题
+        for index, row in rows_with_nan.iterrows():
+            nan_cols = row[row.isnull()].index.tolist()
+            print(f"  - 行索引 {index}: 在列 {nan_cols} 中存在空值")
+        print("=" * 70)
+    else:
+        print("\n数据质量良好，在所有选定列中均未发现空值。")
+
+    # --- 5. 删除剩余的空值行 ---
     initial_rows = len(df)
     df.dropna(inplace=True)
-    print(f"数据类型转换和空值处理后，剩余 {len(df)} / {initial_rows} 条记录。")
+    print(f"最终数据清洗后，剩余 {len(df)} / {initial_rows} 条记录。")
 
     if df.empty:
-        print("警告：数据清洗后，没有数据剩余！请检查原始数据。")
+        print("警告：数据清洗后，没有数据剩余！")
         return None
 
     return df
