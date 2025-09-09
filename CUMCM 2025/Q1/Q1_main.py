@@ -4,10 +4,10 @@
 """
 import matplotlib.pyplot as plt
 import warnings
-import config as cfg
-from data_processing import load_cleaned_data
+import Q1_config as cfg
+from Q1_data_processing import load_cleaned_data
 # ** 导入我们新的、职责分离的两个函数 **
-from analysis_and_modeling import perform_base_analysis, find_and_show_best_interaction_model
+from Q1_analysis_and_modeling import perform_base_analysis, find_and_show_best_interaction_model
 
 
 def main():

@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 # --- 1. 全局设置 ---
-plt.rcParams['font.sans-serif'] = ['SimHei']
+plt.rcParams['font.sans-serif'] = ['SimHei', 'Arial Unicode MS', 'DejaVu Sans']  # 增加备用字体以提高兼容性
 plt.rcParams['axes.unicode_minus'] = False
 
 # --- 2. 加载数据 ---
@@ -33,8 +33,8 @@ def clean_nipt_data(df, is_male_sheet=True):
     initial_rows = len(df_cleaned)
     print(f"\n--- 开始清洗 {'男胎' if is_male_sheet else '女胎'} 数据 (原始 {initial_rows} 行) ---")
 
-    # 【新增】打印列名用于调试
-    print("读取到的列名列表:", df_cleaned.columns.tolist())
+    # 打印列名用于调试
+    # print("读取到的列名列表:", df_cleaned.columns.tolist())
 
     # 3.1 类型转换与格式统一
     if '检测孕周' in df_cleaned.columns:
@@ -69,10 +69,8 @@ def clean_nipt_data(df, is_male_sheet=True):
     if '孕周_数值' in df_cleaned.columns: df_cleaned = df_cleaned[df_cleaned['孕周_数值'].between(10, 42)]
     print(f"根据年龄/BMI/孕周常规范围过滤后，剩余 {len(df_cleaned)} 行。")
 
-    # 3.4 严格数据质控 (QC) 筛选 (已更新，增加存在性检查)
+    # 3.4 严格数据质控 (QC) 筛选
     print("开始执行严格数据质控(QC)筛选...")
-
-    # 检查并筛选每一项
     qc_filters = {
         '在参考基因组上比对的比例': lambda df: df['在参考基因组上比对的比例'] > 0.7,
         '唯一比对的读段数': lambda df: df['唯一比对的读段数'] > 2000000,
@@ -84,8 +82,11 @@ def clean_nipt_data(df, is_male_sheet=True):
 
     for col, condition in qc_filters.items():
         if col in df_cleaned.columns:
+            rows_before = len(df_cleaned)
             df_cleaned = df_cleaned[condition(df_cleaned)]
-            print(f"  - 筛选 [{col}] 条件后，剩余 {len(df_cleaned)} 行。")
+            rows_after = len(df_cleaned)
+            if rows_before > rows_after:
+                print(f"  - 筛选 [{col}] 条件后，剩余 {rows_after} 行 (移除了 {rows_before - rows_after} 行)。")
         else:
             print(f"  - 警告: 质控列 '{col}' 不存在，跳过此项筛选。")
 
@@ -102,49 +103,68 @@ def clean_nipt_data(df, is_male_sheet=True):
     return df_cleaned
 
 
-# --- 4. 清洗前数据可视化 ---
+# --- 4. 数据探索与可视化函数 (已更新) ---
 def plot_data_insights(df, title_prefix):
-    """对DataFrame进行探索性可视化"""
+    """对DataFrame进行探索性可视化，并将图表保存为唯一文件名"""
     if df.empty:
         print(f"{title_prefix} DataFrame为空，跳过可视化。")
         return
 
     print(f"\n--- 正在生成 {title_prefix} 的可视化图表 ---")
-    df = df.copy()  # 使用副本以避免警告
+    df = df.copy()
 
-    # 转换孕周用于绘图
-    if '检测孕周' in df.columns:
+    # 转换孕周用于绘图 (如果清洗函数已创建，这里会覆盖，不影响结果)
+    if '检测孕周' in df.columns and '孕周_数值' not in df.columns:
         df['孕周_数值'] = df['检测孕周'].astype(str).str.extract(r'(\d+)w\+(\d)').apply(
             lambda x: pd.to_numeric(x[0], 'coerce') + pd.to_numeric(x[1], 'coerce') / 7, axis=1
         )
 
     key_cols = ['年龄', '孕妇BMI', '孕周_数值', 'Y染色体浓度', 'GC含量', '在参考基因组上比对的比例', '唯一比对的读段数']
 
-    # 分布图
+    # 筛选出DataFrame中真实存在的列进行绘图
+    cols_to_plot = [col for col in key_cols if col in df.columns and df[col].notna().any()]
+
+    if not cols_to_plot:
+        print(f"在 {title_prefix} 中没有找到可供可视化的关键变量。")
+        return
+
     plt.figure(figsize=(15, 10))
     plt.suptitle(f'{title_prefix} - 关键变量分布', fontsize=16)
-    for i, col in enumerate([c for c in key_cols if c in df.columns]):
+    for i, col in enumerate(cols_to_plot):
         plt.subplot(3, 3, i + 1)
         sns.histplot(df[col], kde=True, bins=30)
         plt.title(col)
+
     plt.tight_layout(rect=[0, 0.03, 1, 0.95])
-    plt.savefig('data.png')
+
+    # 【修改】创建唯一文件名并保存图表
+    safe_filename = title_prefix.replace(' ', '_').replace('-', '').lower() + "_insights.png"
+    plt.savefig(safe_filename)
+    print(f"图表已保存为: '{safe_filename}'")
     plt.show()
 
-# 对原始数据进行快速可视化
+
+# --- 5. 清洗前数据可视化 ---
 plot_data_insights(df_male_raw, "男胎 - 清洗前")
+plot_data_insights(df_female_raw, "女胎 - 清洗前")
 
-
-# --- 5. 执行清洗 ---
+# --- 6. 执行清洗 ---
 df_male_cleaned = clean_nipt_data(df_male_raw, is_male_sheet=True)
 df_female_cleaned = clean_nipt_data(df_female_raw, is_male_sheet=False)
 
-# --- 6. 保存结果 ---
+# --- 7. 清洗后数据可视化 (新增步骤) ---
+print("\n" + "=" * 20 + " 生成清洗后数据的可视化图表 " + "=" * 20)
+plot_data_insights(df_male_cleaned, "男胎 - 清洗后")
+plot_data_insights(df_female_cleaned, "女胎 - 清洗后")
+
+# --- 8. 保存结果 ---
 if not df_male_cleaned.empty or not df_female_cleaned.empty:
     try:
         with pd.ExcelWriter(cleaned_file) as writer:
-            df_male_cleaned.to_excel(writer, sheet_name='男胎数据_已清洗', index=False)
-            df_female_cleaned.to_excel(writer, sheet_name='女胎数据_已清洗', index=False)
+            if not df_male_cleaned.empty:
+                df_male_cleaned.to_excel(writer, sheet_name='男胎数据_已清洗', index=False)
+            if not df_female_cleaned.empty:
+                df_female_cleaned.to_excel(writer, sheet_name='女胎数据_已清洗', index=False)
         print(f"\n成功！已将清洗和筛选后的数据保存至新文件: '{cleaned_file}'")
     except Exception as e:
         print(f"\n错误: 保存文件失败。请检查是否有关闭 '{cleaned_file}' 文件。")

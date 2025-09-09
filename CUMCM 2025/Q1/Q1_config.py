@@ -4,7 +4,7 @@
 """
 
 # --- 文件路径 ---
-CLEANED_DATA_PATH = '../data/data_cleaned2.xlsx'
+CLEANED_DATA_PATH = '../data_cleaned2.xlsx'
 
 # --- 分析参数 ---
 TARGET_VARIABLE = 'Y染色体浓度'
